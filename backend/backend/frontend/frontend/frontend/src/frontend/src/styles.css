@@ -1,0 +1,8 @@
+body{ font-family: Inter, Arial, sans-serif; background:#f3f4f6; color:#111827; margin:0; padding:20px; }
+.container{ max-width:960px; margin:0 auto; }
+.card{ background:white; padding:16px; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.06); margin-bottom:12px; }
+input, select, textarea{ width:100%; padding:8px; border:1px solid #e5e7eb; border-radius:6px; }
+button{ padding:8px 12px; border-radius:6px; border:0; background:#0ea5a4; color:white; cursor:pointer;}
+.muted{ color:#6b7280; font-size:13px;}
+.grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.small{ font-size:13px; }
