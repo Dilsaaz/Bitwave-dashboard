@@ -2,9 +2,9 @@ services:
   - type: web
     name: bitwave-backend
     env: node
+    rootDirectory: backend
     buildCommand: "npm install"
-    startCommand: "node backend/server.js"
-    rootDirectory: .
+    startCommand: "npm start"
     envVars:
       - key: MONGO_URI
         sync: false
