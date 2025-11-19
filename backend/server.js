@@ -223,4 +223,20 @@ app.post("/api/admin/update-earnings", authRequired, async (req, res) => {
 // ====== START SERVER ======
 app.listen(PORT, () => {
   console.log(`🚀 Bitwave backend listening on port ${PORT}`);
+});app.get("/api/me", async (req, res) => {
+  try {
+    const { phone } = req.query;
+    const user = await User.findOne({ phone });
+
+    if (!user) return res.status(404).json({ msg: "User not found" });
+
+    res.json({
+      phone: user.phone,
+      referralCode: user.referralCode,
+      team: user.team,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ msg: "Server error" });
+  }
 });
