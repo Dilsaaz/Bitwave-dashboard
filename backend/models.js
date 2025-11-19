@@ -21,3 +21,21 @@ const userSchema = new mongoose.Schema(
 const User = mongoose.model("User", userSchema);
 
 module.exports = { User };
+// User schema ke andar, jahan name, phone, password waale fields hain
+referralCode: {
+  type: String,
+  unique: true,
+  index: true,
+},
+
+referredBy: {
+  type: mongoose.Schema.Types.ObjectId,
+  ref: "User",
+  default: null,
+},
+
+team: {
+  l1: { type: Number, default: 0 }, // direct team
+  l2: { type: Number, default: 0 }, // 2nd level
+  l3: { type: Number, default: 0 }, // 3rd level
+},
