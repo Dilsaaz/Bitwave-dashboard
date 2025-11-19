@@ -6,7 +6,19 @@ const cors = require("cors");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { User } = require("./models");
+// Unique referral code generator
+async function generateReferralCode(UserModel) {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  while (true) {
+    let code = "BW"; // prefix fixed
+    for (let i = 0; i < 8; i++) {
+      code += chars[Math.floor(Math.random() * chars.length)];
+    }
 
+    const existing = await UserModel.findOne({ referralCode: code });
+    if (!existing) return code; // unique mil gaya
+  }
+}
 const app = express();
 
 const PORT = process.env.PORT || 10000;
