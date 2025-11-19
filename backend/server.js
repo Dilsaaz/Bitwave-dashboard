@@ -5,41 +5,31 @@ const mongoose = require("mongoose");
 const cors = require("cors");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-
-const { User, Transaction } = require("./models");
+const { User } = require("./models");
 
 const app = express();
+
+const PORT = process.env.PORT || 10000;
+const MONGO_URI = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/bitwave";
+const JWT_SECRET = process.env.JWT_SECRET || "bitwave-secret";
 
 // ====== MIDDLEWARE ======
 app.use(cors());
 app.use(express.json());
 
 // ====== DB CONNECT ======
-const MONGO_URI = process.env.MONGO_URI;
-const PORT = process.env.PORT || 10000;
-const JWT_SECRET = process.env.JWT_SECRET || "change-me";
-
 mongoose
-  .connect(MONGO_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  })
+  .connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
   .then(() => console.log("✅ MongoDB connected"))
-  .catch((err) => {
-    console.error("❌ MongoDB connection error:", err.message);
-  });
+  .catch((err) => console.error("❌ MongoDB error:", err.message));
 
 // ====== HELPER: AUTH MIDDLEWARE ======
 function authRequired(req, res, next) {
   const authHeader = req.headers.authorization || "";
-  const token = authHeader.startsWith("Bearer ")
-    ? authHeader.slice(7)
-    : null;
-
+  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
   if (!token) {
-    return res.status(401).json({ ok: false, message: "No token provided" });
+    return res.status(401).json({ ok: false, message: "No token" });
   }
-
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
     req.userId = decoded.id;
@@ -55,43 +45,54 @@ app.get("/", (req, res) => {
   res.send("Bitwave backend is running ✅");
 });
 
-// ====== AUTH ROUTES ======
+// ====== AUTH & USER ROUTES ======
 
-// Register
+/**
+ * Fake OTP system:
+ * - Client bhejega phone number
+ * - Backend hamesha  "1234" OTP return karega (sirf demo ke liye)
+ * Real SMS baad me integrate kar sakte hain
+ */
+app.post("/api/auth/request-otp", async (req, res) => {
+  const { phone } = req.body;
+  if (!phone) {
+    return res.status(400).json({ ok: false, message: "Phone required" });
+  }
+  // Normally yahan SMS gateway call hota
+  return res.json({ ok: true, otp: "1234" });
+});
+
+// Register: phone + password + otp
 app.post("/api/auth/register", async (req, res) => {
   try {
-    const { username, password, email, phone, referralCode } = req.body;
+    const { phone, password, otp } = req.body;
 
-    if (!username || !password) {
+    if (!phone || !password || !otp) {
       return res
         .status(400)
-        .json({ ok: false, message: "username & password required" });
+        .json({ ok: false, message: "phone, password, otp required" });
     }
 
-    const existing = await User.findOne({ username });
+    if (otp !== "1234") {
+      return res.status(400).json({ ok: false, message: "Wrong OTP" });
+    }
+
+    const existing = await User.findOne({ phone });
     if (existing) {
       return res
         .status(400)
-        .json({ ok: false, message: "Username already taken" });
+        .json({ ok: false, message: "Phone already registered" });
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
 
-    // generate referral code
-    const myReferral = username.toLowerCase() + "-" + Date.now().toString(36);
-
-    let referredByUser = null;
-    if (referralCode) {
-      referredByUser = await User.findOne({ referralCode });
-    }
-
+    // default earnings 0
     const user = await User.create({
-      username,
-      email,
       phone,
       passwordHash,
-      referralCode: myReferral,
-      referredBy: referredByUser ? referredByUser._id : undefined,
+      dailyIncomeUSD: 0,
+      totalRewardUSD: 0,
+      levelIncomeUSD: 0,
     });
 
     const token = jwt.sign(
@@ -105,9 +106,11 @@ app.post("/api/auth/register", async (req, res) => {
       token,
       user: {
         id: user._id,
-        username: user.username,
+        phone: user.phone,
         role: user.role,
-        referralCode: user.referralCode,
+        dailyIncomeUSD: user.dailyIncomeUSD,
+        totalRewardUSD: user.totalRewardUSD,
+        levelIncomeUSD: user.levelIncomeUSD,
       },
     });
   } catch (err) {
@@ -116,17 +119,17 @@ app.post("/api/auth/register", async (req, res) => {
   }
 });
 
-// Login
+// Login: phone + password
 app.post("/api/auth/login", async (req, res) => {
   try {
-    const { username, password } = req.body;
-    if (!username || !password) {
+    const { phone, password } = req.body;
+    if (!phone || !password) {
       return res
         .status(400)
-        .json({ ok: false, message: "username & password required" });
+        .json({ ok: false, message: "phone & password required" });
     }
 
-    const user = await User.findOne({ username });
+    const user = await User.findOne({ phone });
     if (!user) {
       return res.status(400).json({ ok: false, message: "User not found" });
     }
@@ -147,10 +150,11 @@ app.post("/api/auth/login", async (req, res) => {
       token,
       user: {
         id: user._id,
-        username: user.username,
+        phone: user.phone,
         role: user.role,
-        referralCode: user.referralCode,
-        balanceUSD: user.balanceUSD,
+        dailyIncomeUSD: user.dailyIncomeUSD,
+        totalRewardUSD: user.totalRewardUSD,
+        levelIncomeUSD: user.levelIncomeUSD,
       },
     });
   } catch (err) {
@@ -159,14 +163,13 @@ app.post("/api/auth/login", async (req, res) => {
   }
 });
 
-// Current user info
+// Current user + earnings
 app.get("/api/me", authRequired, async (req, res) => {
   try {
     const user = await User.findById(req.userId).select("-passwordHash");
     if (!user) {
       return res.status(404).json({ ok: false, message: "User not found" });
     }
-
     res.json({ ok: true, user });
   } catch (err) {
     console.error("Me error:", err);
@@ -174,50 +177,21 @@ app.get("/api/me", authRequired, async (req, res) => {
   }
 });
 
-// Simple route to add transaction (future: admin only)
-app.post("/api/transactions", authRequired, async (req, res) => {
+// Simple endpoint admin ke liye manual earning update (future)
+app.post("/api/admin/update-earnings", authRequired, async (req, res) => {
   try {
-    const { type, amount, note } = req.body;
-    if (!type || !amount) {
-      return res
-        .status(400)
-        .json({ ok: false, message: "type & amount required" });
+    if (req.userRole !== "admin") {
+      return res.status(403).json({ ok: false, message: "Not allowed" });
     }
-
-    const tx = await Transaction.create({
-      user: req.userId,
-      type,
-      amount,
-      note,
-    });
-
-    // balance update (simple version)
-    if (type === "deposit" || type === "profit" || type === "bonus") {
-      await User.findByIdAndUpdate(req.userId, {
-        $inc: { balanceUSD: amount },
-      });
-    } else if (type === "withdraw") {
-      await User.findByIdAndUpdate(req.userId, {
-        $inc: { balanceUSD: -amount },
-      });
-    }
-
-    res.json({ ok: true, tx });
+    const { userId, dailyIncomeUSD, totalRewardUSD, levelIncomeUSD } = req.body;
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { dailyIncomeUSD, totalRewardUSD, levelIncomeUSD },
+      { new: true }
+    ).select("-passwordHash");
+    res.json({ ok: true, user });
   } catch (err) {
-    console.error("Transaction error:", err);
-    res.status(500).json({ ok: false, message: "Server error" });
-  }
-});
-
-// Get my transactions
-app.get("/api/transactions", authRequired, async (req, res) => {
-  try {
-    const list = await Transaction.find({ user: req.userId }).sort({
-      createdAt: -1,
-    });
-    res.json({ ok: true, items: list });
-  } catch (err) {
-    console.error("Get tx error:", err);
+    console.error("Admin update error:", err);
     res.status(500).json({ ok: false, message: "Server error" });
   }
 });
