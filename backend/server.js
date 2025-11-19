@@ -10,6 +10,18 @@ const { User } = require("./models");
 async function generateReferralCode(UserModel) {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
   while (true) {
+    let code = "BW"; // prefix
+    for (let i = 0; i < 8; i++) {
+      code += chars[Math.floor(Math.random() * chars.length)];
+    }
+    const existing = await UserModel.findOne({ referralCode: code });
+    if (!existing) return code;
+  }
+}
+// Unique referral code generator
+async function generateReferralCode(UserModel) {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  while (true) {
     let code = "BW"; // prefix fixed
     for (let i = 0; i < 8; i++) {
       code += chars[Math.floor(Math.random() * chars.length)];
