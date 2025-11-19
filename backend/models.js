@@ -39,3 +39,20 @@ team: {
   l2: { type: Number, default: 0 }, // 2nd level
   l3: { type: Number, default: 0 }, // 3rd level
 },
+referralCode: {
+  type: String,
+  unique: true,
+  index: true,
+},
+
+referredBy: {
+  type: mongoose.Schema.Types.ObjectId,
+  ref: "User",
+  default: null,
+},
+
+team: {
+  l1: { type: Number, default: 0 }, // level 1
+  l2: { type: Number, default: 0 }, // level 2
+  l3: { type: Number, default: 0 }, // level 3
+},
