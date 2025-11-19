@@ -1,63 +1,69 @@
 // backend/models.js
-const mongoose = require('mongoose');
-const Schema = mongoose.Schema;
+const mongoose = require("mongoose");
 
-const AdminSchema = new Schema({
-  email: { type: String, unique: true },
-  passwordHash: String,
-  createdAt: { type: Date, default: Date.now }
-});
+// ----- User -----
+const userSchema = new mongoose.Schema(
+  {
+    username: { type: String, required: true, unique: true },
+    email: { type: String },
+    phone: { type: String },
+    passwordHash: { type: String, required: true },
+    role: { type: String, enum: ["user", "admin"], default: "user" },
 
-const UserSchema = new Schema({
-  fullName: String,
-  whatsapp: String,
-  email: String,
-  country: String,
-  username: String,
-  passwordHash: String,
-  createdAt: { type: Date, default: Date.now }
-});
+    // Referral system
+    referralCode: { type: String, unique: true },
+    referredBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
 
-const PlanSchema = new Schema({
-  key: { type: String, unique: true },
-  name: String,
-  durationDays: Number,
-  multiplier: Number,
-  description: String
-});
+    // Finance
+    balanceUSD: { type: Number, default: 0 },
+    teamVolumeUSD: { type: Number, default: 0 },
 
-const DepositSchema = new Schema({
-  fullName: String,
-  whatsapp: String,
-  email: String,
-  country: String,
-  stakeAmount: Number,
-  planKey: String,
-  txHash: String,
-  customAmountOpt: { type: Boolean, default: false },
-  userId: { type: Schema.Types.ObjectId, ref: 'User' },
-  status: { type: String, enum: ['pending','approved','rejected'], default: 'pending' },
-  createdAt: Date,
-  approvedAt: Date,
-  rejectedAt: Date
-});
+    isActive: { type: Boolean, default: true },
+  },
+  { timestamps: true }
+);
 
-const StakeSchema = new Schema({
-  depositId: { type: Schema.Types.ObjectId, ref: 'Deposit' },
-  userId: { type: Schema.Types.ObjectId, ref: 'User' },
-  userName: String,
-  stakeAmount: Number,
-  planKey: String,
-  startDate: Date,
-  endDate: Date,
-  expectedProfit: Number,
-  status: { type: String, enum: ['active','completed','cancelled'], default: 'active' }
-});
+// ----- Transaction -----
+const transactionSchema = new mongoose.Schema(
+  {
+    user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    type: {
+      type: String,
+      enum: ["deposit", "withdraw", "profit", "bonus"],
+      required: true,
+    },
+    amount: { type: Number, required: true },
+    currency: { type: String, default: "USDT" },
+    status: {
+      type: String,
+      enum: ["pending", "completed", "rejected"],
+      default: "completed",
+    },
+    note: { type: String },
+  },
+  { timestamps: true }
+);
+
+// ----- Daily Profit Snapshot (optional, future use) -----
+const profitSnapshotSchema = new mongoose.Schema(
+  {
+    user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    date: { type: Date, required: true },
+    profitAmount: { type: Number, required: true },
+  },
+  { timestamps: true }
+);
+
+// Models
+const User = mongoose.model("User", userSchema);
+const Transaction = mongoose.model("Transaction", transactionSchema);
+const ProfitSnapshot = mongoose.model(
+  "ProfitSnapshot",
+  profitSnapshotSchema
+);
 
 module.exports = {
-  Admin: mongoose.model('Admin', AdminSchema),
-  User: mongoose.model('User', UserSchema),
-  Plan: mongoose.model('Plan', PlanSchema),
-  Deposit: mongoose.model('Deposit', DepositSchema),
-  Stake: mongoose.model('Stake', StakeSchema)
+  User,
+  Transaction,
+  ProfitSnapshot,
 };
